@@ -376,3 +376,30 @@ func (h *Handler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 
 	sendProductMessage(w, []string{}, updatedProduct)
 }
+
+// Deletes a product from the database.
+func (h *Handler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	productID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		return
+	}
+
+	product, _ := h.Repo.Product.GetProductByID(productID)
+
+	err = h.Repo.Product.DeleteProduct(productID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	//Remove product image
+	productImagePath := filepath.Join("static/uploads", product.ProductImage)
+	os.Remove(productImagePath)
+
+	//Fake Latency
+	time.Sleep(2 * time.Second)
+
+	tmpl.ExecuteTemplate(w, "allProducts", nil)
+}

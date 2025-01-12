@@ -53,6 +53,8 @@ func main() {
 	r.HandleFunc("/products", handler.CreateProduct).Methods("POST")
 	// Endpoint to update a product in the database
 	r.HandleFunc("/products/{id}", handler.UpdateProduct).Methods("PUT")
+	// Endpoint to delete a product from the database
+	r.HandleFunc("/products/{id}", handler.DeleteProduct).Methods("DELETE")
 
 	// Endpoint to display the form to add a new product
 	r.HandleFunc("/createproduct", handler.CreateProductView).Methods("GET")
