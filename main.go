@@ -23,7 +23,6 @@ func initDB() {
 }
 
 func main() {
-
 	r := mux.NewRouter()
 
 	//Setup MySQL
@@ -37,7 +36,17 @@ func main() {
 	repo := repository.NewRepository(db)
 	handler := handlers.NewHandler(repo)
 
+	// Endpoint to seed (feed/create) 20 dummy products in the database (each time the endpoint is called)
 	r.HandleFunc("/seed-products", handler.SeedProducts).Methods("POST")
+
+	// Endpoint to display the products page
+	r.HandleFunc("/manageproducts", handler.ProductsPage).Methods("GET")
+
+	// Endpoint to display the all products view (table with all products)
+	r.HandleFunc("/allproducts", handler.AllProductsView).Methods("GET")
+
+	// Endpoint to display the rows of the all products view (table with all products)
+	r.HandleFunc("/products", handler.ListProducts).Methods("GET")
 
 	http.ListenAndServe(":8080", r)
 }
