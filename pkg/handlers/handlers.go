@@ -3,13 +3,16 @@ package handlers
 import (
 	"fmt"
 	"html/template"
+	"io"
 	"math"
 	"math/rand"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
 	"github.com/bxcodec/faker/v4"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -17,7 +20,23 @@ import (
 	"github.com/thegera4/go-htmx-ecommerce/pkg/repository"
 )
 
-var tmpl *template.Template
+/*** Global Variables ***/
+var tmpl *template.Template // Template variable
+//var currentCartOrderId uuid.UUID // Shopping cart order ID
+//var cartItems []models.OrderItem // Shopping cart items
+
+/*** Structs ***/
+
+// Custom type that contains the data to be passed to the template.
+type ProductCRUDTemplateData struct {
+	Messages []string
+	Product  *models.Product
+}
+
+// Custom type that contains a pointer to the Repositories.
+type Handler struct {
+	Repo *repository.Repository
+}
 
 // Function that initializes the templates.
 func init() {
@@ -26,9 +45,12 @@ func init() {
 	tmpl = template.Must(template.ParseGlob(pattern))
 }
 
-// Custom type that contains a pointer to the Repositories.
-type Handler struct {
-	Repo *repository.Repository
+/*** Helper Functions	***/
+
+// Function that sends messages to the user (for error or status).
+func sendProductMessage(w http.ResponseWriter, messages []string, product *models.Product) {
+	data := ProductCRUDTemplateData{Messages: messages, Product: product}
+	tmpl.ExecuteTemplate(w, "messages", data)
 }
 
 // Function that returns a new Handler with a pointer to the Repository.
@@ -45,7 +67,9 @@ func makeRange(min, max int) []int {
 	return rangeArray
 }
 
-// Function that seeds (feeds / creates) dummy products in the database.
+/*** Handlers ***/
+
+// Seeds (feeds / creates) dummy products in the database.
 func (h *Handler) SeedProducts(w http.ResponseWriter, r *http.Request) {
 	// Seed the random number generator
 	rand.Seed(time.Now().UnixNano())
@@ -79,17 +103,17 @@ func (h *Handler) SeedProducts(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Successfully seeded %d dummy products", numProducts)
 }
 
-// Function that renders the products page.
+// Renders the products page.
 func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
 	tmpl.ExecuteTemplate(w, "products", nil)
 }
 
-// Function that renders the all products view (table).
+// Renders the all products view (table).
 func (h *Handler) AllProductsView(w http.ResponseWriter, r *http.Request) {
 	tmpl.ExecuteTemplate(w, "allProducts", nil)
 }
 
-// Function that lists the products in the database in a paginated way.
+// Lists the products in the database in a paginated way.
 func (h *Handler) ListProducts(w http.ResponseWriter, r *http.Request) {
 	pageStr := r.URL.Query().Get("page")
 	limitStr := r.URL.Query().Get("limit")
@@ -160,7 +184,7 @@ func (h *Handler) ListProducts(w http.ResponseWriter, r *http.Request) {
 	tmpl.ExecuteTemplate(w, "productRows", data)
 }
 
-// Function that renders the product detail page.
+// Renders the product detail page.
 func (h *Handler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	productID, err := uuid.Parse(vars["id"])
@@ -176,4 +200,179 @@ func (h *Handler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl.ExecuteTemplate(w, "viewProduct", product)
+}
+
+// Renders the create product page.
+func (h *Handler) CreateProductView(w http.ResponseWriter, r *http.Request) {
+	tmpl.ExecuteTemplate(w, "createProduct", nil)
+}
+
+// Creates a new product in the database.
+func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
+
+	// Parse the multipart form, 10 MB max upload size
+	r.ParseMultipartForm(10 << 20)
+
+	// Initialize error messages slice
+	var responseMessages []string
+
+	//Check for empty fields
+	ProductName := r.FormValue("product_name")
+	ProductPrice := r.FormValue("price")
+	ProductDescription := r.FormValue("description")
+
+	if ProductName == "" || ProductPrice == "" || ProductDescription == "" {
+		responseMessages = append(responseMessages, "All Fields Are Required")
+		sendProductMessage(w, responseMessages, nil)
+		return
+	}
+
+	/* Process File Upload */
+
+	// Retrieve the file from form data
+	file, handler, err := r.FormFile("product_image")
+	if err != nil {
+		if err == http.ErrMissingFile {
+			responseMessages = append(responseMessages, "Select an Image for the Product")
+		} else {
+			responseMessages = append(responseMessages, "Error retrieving the file")
+		}
+
+		if len(responseMessages) > 0 {
+			fmt.Println(responseMessages)
+			sendProductMessage(w, responseMessages, nil)
+			return
+		}
+	}
+	defer file.Close()
+
+	// Generate a unique filename to prevent overwriting and conflicts
+	uuid, err := uuid.NewRandom()
+	if err != nil {
+		responseMessages = append(responseMessages, "Error generating unique identifier")
+		sendProductMessage(w, responseMessages, nil)
+		return
+	}
+	filename := uuid.String() + filepath.Ext(handler.Filename) // Append the file extension
+
+	// Create the full path for saving the file
+	filePath := filepath.Join("static/uploads", filename)
+
+	// Save the file to the server
+	dst, err := os.Create(filePath)
+	if err != nil {
+		responseMessages = append(responseMessages, "Error saving the file")
+		sendProductMessage(w, responseMessages, nil)
+		return
+	}
+	defer dst.Close()
+	if _, err = io.Copy(dst, file); err != nil {
+		responseMessages = append(responseMessages, "Error saving the file")
+		sendProductMessage(w, responseMessages, nil)
+		return
+	}
+
+	price, err := strconv.ParseFloat(r.FormValue("price"), 64)
+	if err != nil {
+		responseMessages = append(responseMessages, "Invalid price")
+		sendProductMessage(w, responseMessages, nil)
+		return
+	}
+
+	product := models.Product{
+		ProductName:  ProductName,
+		Price:        price,
+		Description:  ProductDescription,
+		ProductImage: filename,
+	}
+
+	err = h.Repo.Product.CreateProduct(&product)
+	if err != nil {
+		//http.Error(w, err.Error(), http.StatusInternalServerError)
+		responseMessages = append(responseMessages, "Invalid price" + err.Error())
+		sendProductMessage(w, responseMessages, nil)
+		return
+	}
+
+	//Fake Latency
+	time.Sleep(2 * time.Second)
+
+	sendProductMessage(w, []string{}, &product)
+}
+
+// Renders the edit product page.
+func (h *Handler) EditProductView(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	productID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		return
+	}
+
+	product, err := h.Repo.Product.GetProductByID(productID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	tmpl.ExecuteTemplate(w, "editProduct", product)
+}
+
+// Updates a product in the database.
+func (h *Handler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	productID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		return
+	}
+
+	err = r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Initialize error messages slice
+	var responseMessages []string
+
+	//Check for empty fields
+	ProductName := r.FormValue("product_name")
+	ProductPrice := r.FormValue("price")
+	ProductDescription := r.FormValue("description")
+
+	if ProductName == "" || ProductPrice == "" || ProductDescription == "" {
+		responseMessages = append(responseMessages, "All Fields Are Required")
+		sendProductMessage(w, responseMessages, nil)
+		return
+	}
+
+	price, err := strconv.ParseFloat(ProductPrice, 64)
+	if err != nil {
+		responseMessages = append(responseMessages, "Invalid Price")
+		sendProductMessage(w, responseMessages, nil)
+		return
+	}
+
+	product := models.Product{
+		ProductID:   productID,
+		ProductName: ProductName,
+		Price:       price,
+		Description: ProductDescription,
+	}
+
+	err = h.Repo.Product.UpdateProduct(&product)
+	if err != nil {
+		responseMessages = append(responseMessages, "Error Updating Product: "+err.Error())
+		sendProductMessage(w, responseMessages, nil)
+		return
+	}
+
+	//Get and send updated product
+	updatedProduct, _ := h.Repo.Product.GetProductByID(productID)
+
+	//Fake Latency
+	time.Sleep(2 * time.Second)
+
+	sendProductMessage(w, []string{}, updatedProduct)
 }

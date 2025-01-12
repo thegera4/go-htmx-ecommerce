@@ -49,6 +49,16 @@ func main() {
 	r.HandleFunc("/products", handler.ListProducts).Methods("GET")
 	// Endpoint to display the details of a product
 	r.HandleFunc("/products/{id}", handler.GetProduct).Methods("GET")
+	// Endpoint to create a new product in the database
+	r.HandleFunc("/products", handler.CreateProduct).Methods("POST")
+	// Endpoint to update a product in the database
+	r.HandleFunc("/products/{id}", handler.UpdateProduct).Methods("PUT")
+
+	// Endpoint to display the form to add a new product
+	r.HandleFunc("/createproduct", handler.CreateProductView).Methods("GET")
+
+	// Endpoint to display the form to edit a product
+	r.HandleFunc("/editproduct/{id}", handler.EditProductView).Methods("GET")
 
 	http.ListenAndServe(":8080", r)
 }

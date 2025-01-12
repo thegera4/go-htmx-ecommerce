@@ -1,20 +1,22 @@
 {{define "productRows"}}
   {{range $index, $product := .Products}}
         <tr>
-            <!-- <td>{{$index}}</td> -->
-            <td style="width: 300px;">{{$product.ProductName}}</td>
+            <td style="width: 200px;">{{$product.ProductName}}</td>
             <td>{{$product.Description}}</td>
             <td>${{printf "%.2f" $product.Price}}</td>
-            <td style="width: 200px;">
+            <td style="width: 300px;">
                 <button class="btn btn-primary" hx-get="/products/{{$product.ProductID}}" hx-target="#productPagesContainer">
                   <i class="fa-solid fa-eye"></i>
+                  View
                 </button>
                 <button class="btn btn-success" hx-get="/editproduct/{{$product.ProductID}}" hx-target="#productPagesContainer">
                   <i class="fa-solid fa-pen-to-square"></i>
+                  Edit
                 </button>
                 <button class="btn btn-danger" hx-delete="/products/{{$product.ProductID}}" hx-target="#productPagesContainer" 
                 hx-confirm="Are you sure you want to delete '{{$product.ProductName}}'?" hx-indicator="#loadingIndicator">
                   <i class="fa-solid fa-trash"></i>
+                  Delete
                 </button>
             </td>
         </tr>
