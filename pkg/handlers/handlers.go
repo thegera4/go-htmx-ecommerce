@@ -10,8 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"github.com/bxcodec/faker/v4"
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/thegera4/go-htmx-ecommerce/pkg/models"
 	"github.com/thegera4/go-htmx-ecommerce/pkg/repository"
 )
@@ -85,7 +86,7 @@ func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
 
 // Function that renders the all products view (table).
 func (h *Handler) AllProductsView(w http.ResponseWriter, r *http.Request) {
-	tmpl.ExecuteTemplate(w, "allproducts", nil)
+	tmpl.ExecuteTemplate(w, "allProducts", nil)
 }
 
 // Function that lists the products in the database in a paginated way.
@@ -157,4 +158,22 @@ func (h *Handler) ListProducts(w http.ResponseWriter, r *http.Request) {
 	//time.Sleep(5 * time.Second)
 
 	tmpl.ExecuteTemplate(w, "productRows", data)
+}
+
+// Function that renders the product detail page.
+func (h *Handler) GetProduct(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	productID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		return
+	}
+
+	product, err := h.Repo.Product.GetProductByID(productID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	tmpl.ExecuteTemplate(w, "viewProduct", product)
 }

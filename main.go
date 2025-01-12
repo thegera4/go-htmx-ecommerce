@@ -47,6 +47,8 @@ func main() {
 
 	// Endpoint to display the rows of the all products view (table with all products)
 	r.HandleFunc("/products", handler.ListProducts).Methods("GET")
+	// Endpoint to display the details of a product
+	r.HandleFunc("/products/{id}", handler.GetProduct).Methods("GET")
 
 	http.ListenAndServe(":8080", r)
 }
