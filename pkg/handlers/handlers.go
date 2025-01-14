@@ -22,8 +22,8 @@ import (
 
 /*** Global Variables ***/
 var tmpl *template.Template // Template variable
-//var currentCartOrderId uuid.UUID // Shopping cart order ID
-//var cartItems []models.OrderItem // Shopping cart items
+var currentCartOrderId uuid.UUID // Shopping cart order ID which is reused for the current session
+var cartItems []models.OrderItem // Shopping cart items
 
 /*** Structs ***/
 
@@ -38,7 +38,7 @@ type Handler struct {
 	Repo *repository.Repository
 }
 
-// Function that initializes the templates.
+// Initializes the templates.
 func init() {
 	templatesDir := "./templates"
 	pattern := filepath.Join(templatesDir, "**", "*.html")
@@ -47,24 +47,33 @@ func init() {
 
 /*** Helper Functions	***/
 
-// Function that sends messages to the user (for error or status).
+// Sends messages to the user (for error or status).
 func sendProductMessage(w http.ResponseWriter, messages []string, product *models.Product) {
 	data := ProductCRUDTemplateData{Messages: messages, Product: product}
 	tmpl.ExecuteTemplate(w, "messages", data)
 }
 
-// Function that returns a new Handler with a pointer to the Repository.
+// Returns a new Handler with a pointer to the Repository.
 func NewHandler(repo *repository.Repository) *Handler {
 	return &Handler{Repo: repo}
 }
 
-// Utility function that subtracts two integers.
+// Subtracts two integers.
 func makeRange(min, max int) []int {
 	rangeArray := make([]int, max-min+1)
 	for i := range rangeArray {
 		rangeArray[i] = min + i
 	}
 	return rangeArray
+}
+
+// Calculates the total cost of the items in the cart.
+func getTotalCartCost() float64 {
+	totalCost := 0.0
+	for _, item := range cartItems {
+		totalCost += float64(item.Quantity) * item.Product.Price
+	}
+	return totalCost
 }
 
 /*** Handlers ***/
@@ -402,4 +411,98 @@ func (h *Handler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(2 * time.Second)
 
 	tmpl.ExecuteTemplate(w, "allProducts", nil)
+}
+
+// Renders the shop home page.
+func (h *Handler) ShoppingHomepage(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		OrderItems []models.OrderItem
+	}{
+		OrderItems: cartItems,
+	}
+	tmpl.ExecuteTemplate(w, "homepage", data)
+}
+
+// Renders the items view in the home page.
+func (h *Handler) ShoppingItemsView(w http.ResponseWriter, r *http.Request) {
+	time.Sleep(1 * time.Second) 	// Fake Latency
+	products, _ := h.Repo.Product.GetProducts("product_image != ''")
+	tmpl.ExecuteTemplate(w, "shoppingItems", products)
+}
+
+// Renders the cart view in the home page.
+func (h *Handler) CartView(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		OrderItems []models.OrderItem
+		Message    string
+		AlertType  string
+		TotalCost  float64
+	}{
+		OrderItems: cartItems,
+		Message:    "",
+		AlertType:  "",
+		TotalCost:  getTotalCartCost(),
+	}
+	tmpl.ExecuteTemplate(w, "cartItems", data)
+}
+
+// Adds a product to the cart.
+func (h *Handler) AddToCart(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	productID, err := uuid.Parse(vars["product_id"])
+	if err != nil {
+		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		return
+	}
+
+	// Generate a new order id for the session if one does not exist
+	if currentCartOrderId == uuid.Nil { currentCartOrderId = uuid.New() }
+
+	// Check if product already exists in order items
+	exists := false
+	for _, item := range cartItems {
+		if item.ProductID == productID {
+			exists = true
+			break
+		}
+	}
+
+	//Get the Product
+	product, _ := h.Repo.Product.GetProductByID(productID)
+
+	cartMessage := ""
+	alertType := ""
+
+	if !exists {
+		// Create a new order item
+		newOrderItem := models.OrderItem{
+			OrderID:   currentCartOrderId,
+			ProductID: productID,
+			Quantity:  1, // Initial quantity of 1
+			Product:   *product,
+		}
+
+		// Add new order item to the array
+		cartItems = append(cartItems, newOrderItem)
+
+		cartMessage = product.ProductName + " successfully added"
+		alertType = "success"
+	} else {
+		cartMessage = product.ProductName + " already exists in cart"
+		alertType = "danger"
+	}
+
+	data := struct {
+		OrderItems []models.OrderItem
+		Message    string
+		AlertType  string
+		TotalCost  float64
+	}{
+		OrderItems: cartItems,
+		Message:    cartMessage,
+		AlertType:  alertType,
+		TotalCost:  getTotalCartCost(),
+	}
+
+	tmpl.ExecuteTemplate(w, "cartItems", data)
 }

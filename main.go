@@ -36,15 +36,25 @@ func main() {
 	repo := repository.NewRepository(db)
 	handler := handlers.NewHandler(repo)
 
+	/*** User Routes ***/
+
+	// Endpoint to display the home page (user shop view)
+	r.HandleFunc("/", handler.ShoppingHomepage).Methods("GET")
+	// Endpoint to display the products in the home page
+	r.HandleFunc("/shoppingitems", handler.ShoppingItemsView).Methods("GET")
+	// Endpoint to display the cart view in the home page
+	r.HandleFunc("/cartitems", handler.CartView).Methods("GET")
+	// Endpoint to add a product to the cart
+	r.HandleFunc("/addtocart/{product_id}", handler.AddToCart).Methods("POST")
+
+	/*** Admin Routes ***/
+	
 	// Endpoint to seed (feed/create) 20 dummy products in the database (each time the endpoint is called)
 	r.HandleFunc("/seed-products", handler.SeedProducts).Methods("POST")
-
 	// Endpoint to display the products page
 	r.HandleFunc("/manageproducts", handler.ProductsPage).Methods("GET")
-
 	// Endpoint to display the all products view (table with all products)
 	r.HandleFunc("/allproducts", handler.AllProductsView).Methods("GET")
-
 	// Endpoint to display the rows of the all products view (table with all products)
 	r.HandleFunc("/products", handler.ListProducts).Methods("GET")
 	// Endpoint to display the details of a product
@@ -55,10 +65,8 @@ func main() {
 	r.HandleFunc("/products/{id}", handler.UpdateProduct).Methods("PUT")
 	// Endpoint to delete a product from the database
 	r.HandleFunc("/products/{id}", handler.DeleteProduct).Methods("DELETE")
-
 	// Endpoint to display the form to add a new product
 	r.HandleFunc("/createproduct", handler.CreateProductView).Methods("GET")
-
 	// Endpoint to display the form to edit a product
 	r.HandleFunc("/editproduct/{id}", handler.EditProductView).Methods("GET")
 
