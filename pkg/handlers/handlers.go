@@ -579,3 +579,33 @@ func (h *Handler) UpdateOrderItemQuantity(w http.ResponseWriter, r *http.Request
 
 	tmpl.ExecuteTemplate(w, "updateShoppingCart", data)
 }
+
+// Places an order.
+func (h *Handler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
+	for i := range cartItems {
+		cartItems[i].Cost = float64(cartItems[i].Quantity) * cartItems[i].Product.Price
+	}
+
+	err := h.Repo.Order.PlaceOrderWithItems(cartItems)
+	if err != nil {
+		http.Error(w, "Error Placing Order "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	displayItems := cartItems
+	totalCost := getTotalCartCost()
+
+	//Empty the cart items
+	cartItems = []models.OrderItem{}
+	currentCartOrderId = uuid.Nil
+
+	data := struct {
+		OrderItems []models.OrderItem
+		TotalCost  float64
+	}{
+		OrderItems: displayItems,
+		TotalCost:  totalCost,
+	}
+
+	tmpl.ExecuteTemplate(w, "orderComplete", data)
+}

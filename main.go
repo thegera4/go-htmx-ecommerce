@@ -50,6 +50,8 @@ func main() {
 	r.HandleFunc("/gotocart", handler.ShoppingCartView).Methods("GET")
 	// Endpoint to update the quantity of a product in the cart
 	r.HandleFunc("/updateorderitem", handler.UpdateOrderItemQuantity).Methods("PUT")
+	// Endpoint to display the order complete view
+	r.HandleFunc("/ordercomplete", handler.PlaceOrder).Methods("GET")
 
 	/*** Admin Routes ***/
 	
