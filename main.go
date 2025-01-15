@@ -46,6 +46,8 @@ func main() {
 	r.HandleFunc("/cartitems", handler.CartView).Methods("GET")
 	// Endpoint to add a product to the cart
 	r.HandleFunc("/addtocart/{product_id}", handler.AddToCart).Methods("POST")
+	// Endpoint to display the checkout view
+	r.HandleFunc("/gotocart", handler.ShoppingCartView).Methods("GET")
 
 	/*** Admin Routes ***/
 	

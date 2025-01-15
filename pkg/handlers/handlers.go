@@ -73,7 +73,7 @@ func getTotalCartCost() float64 {
 	for _, item := range cartItems {
 		totalCost += float64(item.Quantity) * item.Product.Price
 	}
-	return totalCost
+	return math.Round(totalCost * 100) / 100 // Round to 2 decimal places
 }
 
 /*** Handlers ***/
@@ -505,4 +505,9 @@ func (h *Handler) AddToCart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl.ExecuteTemplate(w, "cartItems", data)
+}
+
+// Renders the checkout view in the home page.
+func (h *Handler) ShoppingCartView(w http.ResponseWriter, r *http.Request) {
+	tmpl.ExecuteTemplate(w, "shoppingCart", cartItems)
 }
