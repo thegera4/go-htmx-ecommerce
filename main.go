@@ -86,6 +86,8 @@ func main() {
 	r.HandleFunc("/allorders", handler.AllOrdersView).Methods("GET")
 	// Endpoint to load the rows of the orders table
 	r.HandleFunc("/orders", handler.ListOrders).Methods("GET")
+	// Endpoint to display the details of an order
+	r.HandleFunc("/orders/{id}", handler.GetOrder).Methods("GET")
 
 	http.ListenAndServe(":8080", r)
 }

@@ -673,3 +673,36 @@ func (h *Handler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 	tmpl.ExecuteTemplate(w, "orderRows", data)
 }
+
+// Renders the order detail page.
+func (h *Handler) GetOrder(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orderID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid order ID", http.StatusBadRequest)
+		return
+	}
+
+	order, err := h.Repo.Order.GetOrderWithProducts(orderID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	totalCost := 0.0
+	for _, item := range order.Items {
+		totalCost += float64(item.Quantity) * item.Product.Price
+	}
+
+	order.OrderStatus = strings.ToUpper(order.OrderStatus)
+
+	data := struct {
+		Order     models.Order
+		TotalCost float64
+	}{
+		Order:     *order,
+		TotalCost: totalCost,
+	}
+
+	tmpl.ExecuteTemplate(w, "viewOrder", data)
+}
