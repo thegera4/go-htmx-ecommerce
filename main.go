@@ -55,8 +55,11 @@ func main() {
 
 	/*** Admin Routes ***/
 	
+	// Utility Routes
 	// Endpoint to seed (feed/create) 20 dummy products in the database (each time the endpoint is called)
 	r.HandleFunc("/seed-products", handler.SeedProducts).Methods("POST")
+
+	// Products Routes
 	// Endpoint to display the products page
 	r.HandleFunc("/manageproducts", handler.ProductsPage).Methods("GET")
 	// Endpoint to display the all products view (table with all products)
@@ -75,6 +78,14 @@ func main() {
 	r.HandleFunc("/createproduct", handler.CreateProductView).Methods("GET")
 	// Endpoint to display the form to edit a product
 	r.HandleFunc("/editproduct/{id}", handler.EditProductView).Methods("GET")
+
+	// Orders Routes
+	// Endpoint to display the orders page
+	r.HandleFunc("/manageorders", handler.OrdersPage).Methods("GET")
+	// Endpoint to load all the orders from the database in the table
+	r.HandleFunc("/allorders", handler.AllOrdersView).Methods("GET")
+	// Endpoint to load the rows of the orders table
+	r.HandleFunc("/orders", handler.ListOrders).Methods("GET")
 
 	http.ListenAndServe(":8080", r)
 }

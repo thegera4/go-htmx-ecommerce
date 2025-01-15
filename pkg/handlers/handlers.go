@@ -609,3 +609,67 @@ func (h *Handler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 
 	tmpl.ExecuteTemplate(w, "orderComplete", data)
 }
+
+// Renders the order page.
+func (h *Handler) OrdersPage(w http.ResponseWriter, r *http.Request) {
+	tmpl.ExecuteTemplate(w, "orders", nil)
+}
+
+// Renders all orders in the database in the table.
+func (h *Handler) AllOrdersView(w http.ResponseWriter, r *http.Request) {
+	tmpl.ExecuteTemplate(w, "allOrders", nil)
+}
+
+// Lists the orders in the database in a paginated way.
+func (h *Handler) ListOrders(w http.ResponseWriter, r *http.Request) {
+	pageStr := r.URL.Query().Get("page")
+	limitStr := r.URL.Query().Get("limit")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 { page = 1 }
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 { limit = 10 } // Default limit
+
+	offset := (page - 1) * limit
+
+	orders, err := h.Repo.Order.ListOrders(limit, offset)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	totalOrders, err := h.Repo.Order.GetTotalOrdersCount()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	totalPages := int(math.Ceil(float64(totalOrders) / float64(limit)))
+	previousPage := page - 1
+	nextPage := page + 1
+	pageButtonsRange := makeRange(1, totalPages)
+
+	data := struct {
+		Orders           []models.Order
+		CurrentPage      int
+		TotalPages       int
+		Limit            int
+		PreviousPage     int
+		NextPage         int
+		PageButtonsRange []int
+	}{
+		Orders:           orders,
+		CurrentPage:      page,
+		TotalPages:       totalPages,
+		Limit:            limit,
+		PreviousPage:     previousPage,
+		NextPage:         nextPage,
+		PageButtonsRange: pageButtonsRange,
+	}
+
+	//Fake Latency
+	//time.Sleep(2 * time.Second)
+
+	tmpl.ExecuteTemplate(w, "orderRows", data)
+}
